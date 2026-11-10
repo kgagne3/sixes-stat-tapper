@@ -67,6 +67,11 @@ th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line)}
 th:first-child,td:first-child{text-align:left}
 th{font:600 12px var(--body);color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
 caption{caption-side:top;text-align:left;font-weight:700;padding:6px 0;color:var(--c)}
+.radd{display:flex;gap:8px;align-items:stretch}
+.radd input{flex:1;min-width:0}
+.radd .ghost{min-height:44px;padding:10px 18px}
+.rc{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}
+.rc button{padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);font:700 16px var(--body)}
 /* entry sheet */
 #sheet{position:fixed;inset:0;display:none;background:rgba(0,0,0,.45);z-index:10}
 #sheet.on{display:flex;align-items:flex-end;justify-content:center}
@@ -112,9 +117,13 @@ caption{caption-side:top;text-align:left;font-weight:700;padding:6px 0;color:var
   <button style="--c:var(--a)" data-t="gb" data-tm="0">Ground ball</button>
   <button style="--c:var(--b)" data-t="gb" data-tm="1">Ground ball</button>
 </div>
-<details class="ros"><summary>Rosters (optional, one tap per player)</summary>
-  <label for="r0" id="rl0">Home numbers</label><input id="r0" inputmode="numeric" placeholder="1 4 7 12 15 22">
-  <label for="r1" id="rl1">Away numbers</label><input id="r1" inputmode="numeric" placeholder="2 5 8 9 11 30">
+<details class="ros"><summary>Rosters (optional): type a number, tap Add</summary>
+  <label for="r0" id="rl0">Home numbers</label>
+  <div class="radd"><input id="r0" inputmode="numeric" placeholder="Number"><button class="ghost" id="add0">Add</button></div>
+  <div class="rc" id="rc0"></div>
+  <label for="r1" id="rl1">Away numbers</label>
+  <div class="radd"><input id="r1" inputmode="numeric" placeholder="Number"><button class="ghost" id="add1">Add</button></div>
+  <div class="rc" id="rc1"></div>
 </details>
 <div class="row">
   <button class="ghost" id="undo">Undo last</button>
@@ -347,7 +356,22 @@ $("copy").addEventListener("click",function(){
   try{navigator.clipboard.writeText(csv).then(function(){toast("CSV copied. Paste into a sheet.")},function(){toast("Copy blocked. Press and hold the log to select.")})}
   catch(e){toast("Copy blocked on this device.")}
 });
-[0,1].forEach(function(i){var el=$("r"+i);el.value=S.rosters[i]||"";el.addEventListener("input",function(){S.rosters[i]=el.value;save()})});
+/* roster: numeric keypad only, so each number is added with the Add button (or Enter) and removed by tapping its chip */
+function setRoster(i,list){S.rosters[i]=list.join(" ");save();drawRoster(i)}
+function drawRoster(i){
+  $("rc"+i).innerHTML=roster(i).map(function(n){return '<button data-rm="'+i+'" data-n="'+n+'" aria-label="Remove '+n+'">'+n+' ✕</button>'}).join("");
+}
+function addRoster(i){
+  var el=$("r"+i),v=el.value.replace(/\D/g,"");
+  if(v)setRoster(i,roster(i).concat([v]));
+  el.value="";el.focus();
+}
+[0,1].forEach(function(i){
+  drawRoster(i);
+  $("add"+i).addEventListener("click",function(){addRoster(i)});
+  $("r"+i).addEventListener("keydown",function(ev){if(ev.key==="Enter"){ev.preventDefault();addRoster(i)}});
+  $("rc"+i).addEventListener("click",function(ev){var b=ev.target.closest("button[data-rm]");if(b)setRoster(i,roster(i).filter(function(x){return x!==b.dataset.n}))});
+});
 renderAll();
 if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(function(){});}
 </script>
