@@ -1,4 +1,4 @@
-{
+window.POINTBENCH = {
  "pulled": "2026-11-14",
  "source": "https://stats.pointbench.com/eu/eslcm/2026/",
  "teams": {
@@ -1919,4 +1919,4 @@
    "result": "30-5"
   }
  ]
-}
+};
