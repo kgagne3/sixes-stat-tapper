@@ -157,6 +157,7 @@ caption{caption-side:top;text-align:left;font-weight:700;padding:6px 0;color:var
 
 <script>
 var LABEL={goal:"Goal",save:"Save",wide:"Wide",post:"Post",blocked:"Blocked",gb:"Ground ball",pen:"Penalty"};
+var PTYPES=["Slash","Hold","Cross-check","Push","Trip","Illegal check","Other"]; // penalty types shown as buttons
 var KEY="sixes-stat-tapper-v1";
 var S={names:["Home","Away"],period:1,events:[],nid:1};
 try{var raw=localStorage.getItem(KEY);if(raw){var p=JSON.parse(raw);if(p&&p.events)S=p;}}catch(e){}
@@ -196,7 +197,7 @@ function renderPeriods(){
 function who(e){
   var t=e.shooter?"#"+e.shooter:"#?";
   if(e.type==="goal"){if(e.assist==="none")t+=", unassisted";else if(e.assist)t+=", assist #"+e.assist}
-  if(e.type==="pen"&&e.minutes)t+=", "+e.minutes+" min";
+  if(e.type==="pen"){if(e.ptype)t+=", "+e.ptype;if(e.minutes)t+=", "+e.minutes+" min"}
   return t;
 }
 function renderLog(){
@@ -246,11 +247,11 @@ function renderAll(){renderScore();renderPeriods();renderLog();renderBox();save(
 
 /* ---------- entry sheet ---------- */
 var D=null; // draft
-function fieldsFor(t){return t==="goal"?["time","shooter","assist"]:t==="save"?["shooter","goalie"]:t==="pen"?["time","shooter","minutes"]:["shooter"]}
-var FL={shooter:"Shooter",assist:"Assist",goalie:"Goalie",time:"Time",minutes:"Minutes"};
+function fieldsFor(t){return t==="goal"?["time","shooter","assist"]:t==="save"?["shooter","goalie"]:t==="pen"?["time","shooter","ptype","minutes"]:["shooter"]}
+var FL={shooter:"Shooter",assist:"Assist",goalie:"Goalie",time:"Time",ptype:"Type",minutes:"Minutes"};
 function open(type,ev,team){
-  if(ev){D={id:ev.id,type:ev.type,team:ev.team,period:ev.period,shooter:ev.shooter||"",assist:ev.assist||"",goalie:ev.goalie||"",time:ev.time||"",minutes:ev.minutes||"",f:fieldsFor(ev.type)[0]};}
-  else{D={id:0,type:type,team:team,period:S.period,shooter:"",assist:"",goalie:"",time:"",minutes:"",f:fieldsFor(type)[0]};}
+  if(ev){D={id:ev.id,type:ev.type,team:ev.team,period:ev.period,shooter:ev.shooter||"",assist:ev.assist||"",goalie:ev.goalie||"",time:ev.time||"",ptype:ev.ptype||"",minutes:ev.minutes||"",f:fieldsFor(ev.type)[0]};}
+  else{D={id:0,type:type,team:team,period:S.period,shooter:"",assist:"",goalie:"",time:"",ptype:"",minutes:"",f:fieldsFor(type)[0]};}
   drawSheet();$("sheet").classList.add("on");
 }
 function close(){$("sheet").classList.remove("on");D=null}
@@ -266,8 +267,13 @@ function drawSheet(){
     h+='<button data-f="'+f+'" aria-pressed="'+(D.f===f)+'"><small>'+(f==="shooter"&&(D.type==="gb"||D.type==="pen")?"Player":FL[f])+(f==="goalie"?" (opp.)":"")+'</small><b>'+(v||"–")+'</b></button>';
   });
   h+='</div>';
-  var rt=D.f==="goalie"?1-D.team:D.team,ros=(D.f==="time"||D.f==="minutes")?[]:roster(rt);
-  if(ros.length&&!D.pad){
+  var rt=D.f==="goalie"?1-D.team:D.team,ros=(D.f==="time"||D.f==="minutes"||D.f==="ptype")?[]:roster(rt);
+  if(D.f==="ptype"){
+    h+='<div class="chips" style="grid-template-columns:repeat(2,1fr)">';
+    PTYPES.forEach(function(t){h+='<button class="w" data-n="'+esc(t)+'">'+esc(t)+'</button>'});
+    h+='</div>';
+  }
+  else if(ros.length&&!D.pad){
     h+='<div class="chips" style="--c:'+col(rt)+'">';
     ros.forEach(function(n){h+='<button data-n="'+n+'"'+(D.f==="assist"&&n===D.shooter?' disabled':'')+'>'+n+'</button>'});
     if(D.f==="assist")h+='<button class="w" data-n="none">None</button>';
@@ -328,7 +334,7 @@ function move(id,d){
 function commit(){
   if(D.team===null)return;
   var timed=D.type==="goal"||D.type==="pen";
-  var e={id:D.id||S.nid++,type:D.type,team:D.team,period:D.period,shooter:D.shooter,assist:D.type==="goal"?D.assist:"",goalie:D.type==="save"?D.goalie:"",time:timed?D.time:"",minutes:D.type==="pen"?(D.minutes||""):""};
+  var e={id:D.id||S.nid++,type:D.type,team:D.team,period:D.period,shooter:D.shooter,assist:D.type==="goal"?D.assist:"",goalie:D.type==="save"?D.goalie:"",time:timed?D.time:"",ptype:D.type==="pen"?(D.ptype||""):"",minutes:D.type==="pen"?(D.minutes||""):""};
   if(D.id){
     var i=S.events.findIndex(function(x){return x.id===D.id}),old=S.events[i];
     if(e.period!==old.period||(timed&&e.time&&e.time!==old.time)){S.events.splice(i,1);place(e)}
@@ -366,8 +372,8 @@ $("reset").addEventListener("click",function(){
   S.events=[];S.period=1;S.nid=1;armed=false;$("reset").textContent="New game";renderAll();
 });
 $("copy").addEventListener("click",function(){
-  var rows=[["period","time","team","event","shooter","assist","goalie","minutes"]];
-  S.events.forEach(function(e){rows.push([e.period,fmtTime(e.time),S.names[e.team],e.type,e.shooter,e.assist==="none"?"":e.assist,e.goalie,e.minutes||""])});
+  var rows=[["period","time","team","event","shooter","assist","goalie","penalty","minutes"]];
+  S.events.forEach(function(e){rows.push([e.period,fmtTime(e.time),S.names[e.team],e.type,e.shooter,e.assist==="none"?"":e.assist,e.goalie,e.ptype||"",e.minutes||""])});
   var csv=rows.map(function(r){return r.map(function(c){c=String(c==null?"":c);return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c}).join(",")}).join("\n");
   try{navigator.clipboard.writeText(csv).then(function(){toast("CSV copied. Paste into a sheet.")},function(){toast("Copy blocked. Press and hold the log to select.")})}
   catch(e){toast("Copy blocked on this device.")}
