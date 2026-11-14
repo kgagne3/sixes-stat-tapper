@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Static pull of team rosters and the game schedule from Pointbench.
 
-Writes data/pointbench.json. Re-run only when rosters or fixtures change:
+Writes data/pointbench.js (a script that sets window.POINTBENCH). Re-run only when rosters or fixtures change:
     python3 tools/pull_pointbench.py
 Standard library only. Waits between requests.
 """
@@ -14,7 +14,7 @@ from html import unescape
 from html.parser import HTMLParser
 
 BASE = "https://stats.pointbench.com/eu/eslcm/2026/index.php"
-OUT = "data/pointbench.json"
+OUT = "data/pointbench.js"
 HEADERS = {"User-Agent": "sixes-stat-tapper-pull/1.0"}
 DELAY = 1.0  # seconds between requests
 
@@ -117,7 +117,9 @@ def main():
         "games": sorted(games.values(), key=lambda g: g["code"]),
     }
     with open(OUT, "w", encoding="utf-8") as f:
+        f.write("window.POINTBENCH = ")
         json.dump(out, f, ensure_ascii=False, indent=1)
+        f.write(";\n")
     print("games:", len(out["games"]), "->", OUT)
 
 
