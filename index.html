@@ -67,6 +67,10 @@ th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line)}
 th:first-child,td:first-child{text-align:left}
 th{font:600 12px var(--body);color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
 caption{caption-side:top;text-align:left;font-weight:700;padding:6px 0;color:var(--c)}
+.pb{margin:8px 0 12px}
+.pb select{width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:600 16px var(--body)}
+.pb button{margin-top:8px;width:100%}
+.pb button:disabled{opacity:.4}
 .radd{display:flex;gap:8px;align-items:stretch}
 .radd input{flex:1;min-width:0}
 .radd .ghost{min-height:44px;padding:10px 18px}
@@ -117,7 +121,13 @@ caption{caption-side:top;text-align:left;font-weight:700;padding:6px 0;color:var
   <button style="--c:var(--a)" data-t="gb" data-tm="0">Ground ball</button>
   <button style="--c:var(--b)" data-t="gb" data-tm="1">Ground ball</button>
 </div>
-<details class="ros"><summary>Rosters (optional): type a number, tap Add</summary>
+<details class="ros"><summary>Rosters (optional): pick a game, or type a number and tap Add</summary>
+  <div class="pb">
+    <label for="pbg">Pointbench game</label>
+    <select id="pbg"><option value="">Choose a game…</option></select>
+    <button class="ghost" id="pbload" disabled>Load both teams' rosters</button>
+    <div class="toast" id="pbnote"></div>
+  </div>
   <label for="r0" id="rl0">Home numbers</label>
   <div class="radd"><input id="r0" inputmode="numeric" placeholder="Number"><button class="ghost" id="add0">Add</button></div>
   <div class="rc" id="rc0"></div>
@@ -355,6 +365,29 @@ $("copy").addEventListener("click",function(){
   var csv=rows.map(function(r){return r.map(function(c){c=String(c==null?"":c);return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c}).join(",")}).join("\n");
   try{navigator.clipboard.writeText(csv).then(function(){toast("CSV copied. Paste into a sheet.")},function(){toast("Copy blocked. Press and hold the log to select.")})}
   catch(e){toast("Copy blocked on this device.")}
+});
+/* Pointbench: static list of games and rosters (data/pointbench.json, made by tools/pull_pointbench.py) */
+var PB=null;
+fetch("data/pointbench.json").then(function(r){return r.json()}).then(function(d){
+  PB=d;
+  var h='<option value="">Choose a game…</option>';
+  d.games.forEach(function(g,k){
+    var hn=(d.teams[g.home]||{}).name||g.homeName, an=(d.teams[g.away]||{}).name||g.awayName;
+    h+='<option value="'+k+'">'+esc(g.code)+' · '+esc(g.date)+' '+esc(g.time)+' · '+esc(hn)+' v '+esc(an)+' · '+esc(g.field)+'</option>';
+  });
+  $("pbg").innerHTML=h;
+}).catch(function(){$("pbnote").textContent="Game list unavailable. Type numbers instead."});
+$("pbg").addEventListener("change",function(){$("pbload").disabled=!this.value});
+$("pbload").addEventListener("click",function(){
+  var k=$("pbg").value;if(!PB||k==="")return;
+  var g=PB.games[+k],H=PB.teams[g.home]||{name:g.homeName,roster:[]},A=PB.teams[g.away]||{name:g.awayName,roster:[]};
+  S.names=[H.name||g.homeName,A.name||g.awayName];
+  S.rosters[0]=H.roster.map(function(p){return p.number}).join(" ");
+  S.rosters[1]=A.roster.map(function(p){return p.number}).join(" ");
+  save();
+  [0,1].forEach(function(i){drawRoster(i)});
+  renderAll();
+  $("pbnote").textContent=g.code+": "+S.names[0]+" "+roster(0).length+" players, "+S.names[1]+" "+roster(1).length+" players loaded.";
 });
 /* roster: numeric keypad only, so each number is added with the Add button (or Enter) and removed by tapping its chip */
 function setRoster(i,list){S.rosters[i]=list.join(" ");save();drawRoster(i)}
