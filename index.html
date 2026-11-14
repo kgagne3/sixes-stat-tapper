@@ -171,7 +171,7 @@ var PTYPES=["Slash","Hold","Cross-check","Push","Trip","Illegal check","Other"];
 var KEY="sixes-stat-tapper-v1", SKEY="sixes-stat-settings";
 var S={names:["Home","Away"],teams:["",""],field:"",gameCode:"",period:1,events:[],nid:1,rosters:["",""],goalies:["",""]};
 try{var raw=localStorage.getItem(KEY);if(raw){var p=JSON.parse(raw);if(p&&p.events)S=Object.assign(S,p);}}catch(e){}
-var SET={feedUrl:""};
+var SET={feedUrl:"wss://apps.playit.pt/socket?app=world-lacrosse-2026"};
 try{var sraw=localStorage.getItem(SKEY);if(sraw)SET=Object.assign(SET,JSON.parse(sraw));}catch(e){}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 function saveSet(){try{localStorage.setItem(SKEY,JSON.stringify(SET));}catch(e){}}
