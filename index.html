@@ -120,6 +120,8 @@ caption{caption-side:top;text-align:left;font-weight:700;padding:6px 0;color:var
   <button style="--c:var(--b)" data-t="wide" data-tm="1">Wide</button>
   <button style="--c:var(--a)" data-t="gb" data-tm="0">Ground ball</button>
   <button style="--c:var(--b)" data-t="gb" data-tm="1">Ground ball</button>
+  <button style="--c:var(--a)" data-t="pen" data-tm="0">Penalty</button>
+  <button style="--c:var(--b)" data-t="pen" data-tm="1">Penalty</button>
 </div>
 <details class="ros"><summary>Rosters (optional): pick a game, or type a number and tap Add</summary>
   <div class="pb">
@@ -154,7 +156,7 @@ caption{caption-side:top;text-align:left;font-weight:700;padding:6px 0;color:var
 </div>
 
 <script>
-var LABEL={goal:"Goal",save:"Save",wide:"Wide",post:"Post",blocked:"Blocked",gb:"Ground ball"};
+var LABEL={goal:"Goal",save:"Save",wide:"Wide",post:"Post",blocked:"Blocked",gb:"Ground ball",pen:"Penalty"};
 var KEY="sixes-stat-tapper-v1";
 var S={names:["Home","Away"],period:1,events:[],nid:1};
 try{var raw=localStorage.getItem(KEY);if(raw){var p=JSON.parse(raw);if(p&&p.events)S=p;}}catch(e){}
@@ -170,6 +172,7 @@ function toast(m){$("toast").textContent=m;clearTimeout(toast.h);toast.h=setTime
 function tally(){
   var T=[{g:0,sh:0,sog:0,sv:0,gb:0},{g:0,sh:0,sog:0,sv:0,gb:0}];
   S.events.forEach(function(e){
+    if(e.type==="pen")return; // penalties are not shots
     var t=T[e.team];if(e.type==="gb"){t.gb++;return}t.sh++;
     if(e.type==="goal"){t.g++;t.sog++;T[1-e.team].sv+=0}
     if(e.type==="save"){t.sog++;T[1-e.team].sv++}
@@ -180,7 +183,7 @@ function renderScore(){
   var T=tally(),h="";
   [0,1].forEach(function(i){
     h+='<div class="team" style="--c:'+col(i)+'"><input id="nm'+i+'" aria-label="Team '+(i+1)+' name" value="'+esc(S.names[i])+'">'+
-       '<div class="n">'+T[i].g+'</div><div class="s">Shots '+T[i].sh+' · SOG '+T[i].sog+' · Saves '+T[i].sv+' · GB '+T[i].gb+'</div></div>';
+       '<div class="n">'+T[i].g+'</div><div class="s">Shots '+T[i].sh+' · SOG '+T[i].sog+' · Saves '+T[i].sv+' · GB '+T[i].gb+' · Pen '+S.events.filter(function(e){return e.type==="pen"&&e.team===i}).length+'</div></div>';
   });
   $("score").innerHTML=h;
   [0,1].forEach(function(i){$("rl"+i).textContent=S.names[i]+" numbers"});
@@ -193,13 +196,14 @@ function renderPeriods(){
 function who(e){
   var t=e.shooter?"#"+e.shooter:"#?";
   if(e.type==="goal"){if(e.assist==="none")t+=", unassisted";else if(e.assist)t+=", assist #"+e.assist}
+  if(e.type==="pen"&&e.minutes)t+=", "+e.minutes+" min";
   return t;
 }
 function renderLog(){
   if(!S.events.length){$("log").innerHTML='<div class="empty">No events yet. Tap a Goal, Save, Wide or Ground ball.</div>';return}
   var h="";
   S.events.slice().reverse().forEach(function(e){
-    var isG=e.type==="goal",miss=isG&&!e.time;
+    var isG=e.type==="goal"||e.type==="pen",miss=e.type==="goal"&&!e.time;
     var p=(e.period<5?"Q"+e.period:"OT")+" · "+esc(S.names[e.team]);
     if(e.goalie)p+=" · G #"+e.goalie;
     h+='<button class="item" style="--c:'+col(e.team)+'" data-id="'+e.id+'"><span class="t'+(miss?" miss":"")+'">'+(isG?(miss?"--:--":fmtTime(e.time)):"")+'</span>'+
@@ -213,6 +217,7 @@ function renderBox(){
     var P={},G={};
     S.events.forEach(function(e){
       var k;
+      if(e.type==="pen")return; // penalties are not in the box score
       if(e.team===tm){
         k=e.shooter||"?";P[k]=P[k]||{g:0,a:0,sh:0,sog:0,gb:0};
         if(e.type==="gb"){P[k].gb++;return}
@@ -241,11 +246,11 @@ function renderAll(){renderScore();renderPeriods();renderLog();renderBox();save(
 
 /* ---------- entry sheet ---------- */
 var D=null; // draft
-function fieldsFor(t){return t==="goal"?["time","shooter","assist"]:t==="save"?["shooter","goalie"]:["shooter"]}
-var FL={shooter:"Shooter",assist:"Assist",goalie:"Goalie",time:"Time"};
+function fieldsFor(t){return t==="goal"?["time","shooter","assist"]:t==="save"?["shooter","goalie"]:t==="pen"?["time","shooter","minutes"]:["shooter"]}
+var FL={shooter:"Shooter",assist:"Assist",goalie:"Goalie",time:"Time",minutes:"Minutes"};
 function open(type,ev,team){
-  if(ev){D={id:ev.id,type:ev.type,team:ev.team,period:ev.period,shooter:ev.shooter||"",assist:ev.assist||"",goalie:ev.goalie||"",time:ev.time||"",f:fieldsFor(ev.type)[0]};}
-  else{D={id:0,type:type,team:team,period:S.period,shooter:"",assist:"",goalie:"",time:"",f:fieldsFor(type)[0]};}
+  if(ev){D={id:ev.id,type:ev.type,team:ev.team,period:ev.period,shooter:ev.shooter||"",assist:ev.assist||"",goalie:ev.goalie||"",time:ev.time||"",minutes:ev.minutes||"",f:fieldsFor(ev.type)[0]};}
+  else{D={id:0,type:type,team:team,period:S.period,shooter:"",assist:"",goalie:"",time:"",minutes:"",f:fieldsFor(type)[0]};}
   drawSheet();$("sheet").classList.add("on");
 }
 function close(){$("sheet").classList.remove("on");D=null}
@@ -258,10 +263,10 @@ function drawSheet(){
   h+='<div class="fields">';
   fs.forEach(function(f){
     var v=f==="time"?fmtTime(D.time):(D[f]==="none"?"None":D[f]);
-    h+='<button data-f="'+f+'" aria-pressed="'+(D.f===f)+'"><small>'+(f==="shooter"&&D.type==="gb"?"Player":FL[f])+(f==="goalie"?" (opp.)":"")+'</small><b>'+(v||"–")+'</b></button>';
+    h+='<button data-f="'+f+'" aria-pressed="'+(D.f===f)+'"><small>'+(f==="shooter"&&(D.type==="gb"||D.type==="pen")?"Player":FL[f])+(f==="goalie"?" (opp.)":"")+'</small><b>'+(v||"–")+'</b></button>';
   });
   h+='</div>';
-  var rt=D.f==="goalie"?1-D.team:D.team,ros=D.f==="time"?[]:roster(rt);
+  var rt=D.f==="goalie"?1-D.team:D.team,ros=(D.f==="time"||D.f==="minutes")?[]:roster(rt);
   if(ros.length&&!D.pad){
     h+='<div class="chips" style="--c:'+col(rt)+'">';
     ros.forEach(function(n){h+='<button data-n="'+n+'"'+(D.f==="assist"&&n===D.shooter?' disabled':'')+'>'+n+'</button>'});
@@ -307,8 +312,8 @@ function secs(t){return (+t.slice(0,-2)||0)*60+(+t.slice(-2)||0)}
 function pv(t){return down()?-secs(t):secs(t)}
 function place(e){
   var ev=S.events,at=-1,i;
-  if(e.type==="goal"&&e.time){
-    for(i=0;i<ev.length;i++){var x=ev[i];if(x.period===e.period&&x.type==="goal"&&x.time&&pv(x.time)<=pv(e.time))at=i}
+  if((e.type==="goal"||e.type==="pen")&&e.time){
+    for(i=0;i<ev.length;i++){var x=ev[i];if(x.period===e.period&&(x.type==="goal"||x.type==="pen")&&x.time&&pv(x.time)<=pv(e.time))at=i}
     if(at<0){var f=ev.length;for(i=0;i<ev.length;i++){if(ev[i].period>=e.period){f=i;break}}at=f-1}
   }else{
     for(i=0;i<ev.length;i++){if(ev[i].period<=e.period)at=i}
@@ -322,10 +327,11 @@ function move(id,d){
 }
 function commit(){
   if(D.team===null)return;
-  var e={id:D.id||S.nid++,type:D.type,team:D.team,period:D.period,shooter:D.shooter,assist:D.type==="goal"?D.assist:"",goalie:D.type==="save"?D.goalie:"",time:D.type==="goal"?D.time:""};
+  var timed=D.type==="goal"||D.type==="pen";
+  var e={id:D.id||S.nid++,type:D.type,team:D.team,period:D.period,shooter:D.shooter,assist:D.type==="goal"?D.assist:"",goalie:D.type==="save"?D.goalie:"",time:timed?D.time:"",minutes:D.type==="pen"?(D.minutes||""):""};
   if(D.id){
     var i=S.events.findIndex(function(x){return x.id===D.id}),old=S.events[i];
-    if(e.period!==old.period||(e.type==="goal"&&e.time&&e.time!==old.time)){S.events.splice(i,1);place(e)}
+    if(e.period!==old.period||(timed&&e.time&&e.time!==old.time)){S.events.splice(i,1);place(e)}
     else S.events[i]=e;
   }else place(e);
   close();renderAll();
@@ -360,8 +366,8 @@ $("reset").addEventListener("click",function(){
   S.events=[];S.period=1;S.nid=1;armed=false;$("reset").textContent="New game";renderAll();
 });
 $("copy").addEventListener("click",function(){
-  var rows=[["period","time","team","event","shooter","assist","goalie"]];
-  S.events.forEach(function(e){rows.push([e.period,fmtTime(e.time),S.names[e.team],e.type,e.shooter,e.assist==="none"?"":e.assist,e.goalie])});
+  var rows=[["period","time","team","event","shooter","assist","goalie","minutes"]];
+  S.events.forEach(function(e){rows.push([e.period,fmtTime(e.time),S.names[e.team],e.type,e.shooter,e.assist==="none"?"":e.assist,e.goalie,e.minutes||""])});
   var csv=rows.map(function(r){return r.map(function(c){c=String(c==null?"":c);return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c}).join(",")}).join("\n");
   try{navigator.clipboard.writeText(csv).then(function(){toast("CSV copied. Paste into a sheet.")},function(){toast("Copy blocked. Press and hold the log to select.")})}
   catch(e){toast("Copy blocked on this device.")}
