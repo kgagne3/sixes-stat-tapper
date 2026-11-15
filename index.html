@@ -196,6 +196,14 @@ var PENDING_GOALIES=null; // goalie prompt waiting until an open sheet closes
 function flushPending(){
   if(PENDING_GOALIES&&!$("sheet").classList.contains("on")&&!$("ssheet").classList.contains("on")){var t=PENDING_GOALIES;PENDING_GOALIES=null;openGoalies(t)}
 }
+/* At game start, take the quarter from the live reading right away (no goalie prompt; the start prompt covers it). */
+function syncPeriodNow(){
+  if(!S.field)return;
+  var L=liveFor(S.field);
+  if(!L||!L.ok||!L.period)return;
+  var p=Math.min(5,Math.max(1,+L.period));
+  S.period=p;FEED.lastPeriod[S.field]=p;save();renderAll();
+}
 /* The quarter follows the scoreboard while a live reading is available. Manual Q buttons still work. */
 function syncPeriod(){
   if(!S.field||!S.teams[0])return;
@@ -539,7 +547,8 @@ function startGame(){
   S.goalies=["",""];S.events=[];S.nid=1;S.period=1;FEED.lastPeriod={};PENDING_GOALIES=null;
   save();closeSetup();renderAll();
   openGoalies("Starting goalies");
-  fetchMap(SU.field).then(function(){renderBoard()});
+  syncPeriodNow();
+  fetchMap(SU.field).then(function(){renderBoard();syncPeriodNow()});
 }
 $("setupBtn").addEventListener("click",openSetup);
 $("ssheet").addEventListener("click",function(ev){
