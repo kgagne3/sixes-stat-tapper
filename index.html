@@ -191,7 +191,26 @@ function findGame(a,b){var gs=PB().games;for(var k=0;k<gs.length;k++){var g=gs[k
 function findGameId(id){var gs=PB().games;for(var k=0;k<gs.length;k++){if(gs[k].gameId===id)return gs[k]}return null}
 
 /* ---------- scoreboard feed (external): read only ---------- */
-var FEED={ws:null,status:"off",devices:{},lastMsg:0,retry:null,map:{}};
+var FEED={ws:null,status:"off",devices:{},lastMsg:0,retry:null,map:{},lastPeriod:{}};
+var PENDING_GOALIES=null; // goalie prompt waiting until an open sheet closes
+function flushPending(){
+  if(PENDING_GOALIES&&!$("sheet").classList.contains("on")&&!$("ssheet").classList.contains("on")){var t=PENDING_GOALIES;PENDING_GOALIES=null;openGoalies(t)}
+}
+/* The quarter follows the scoreboard while a live reading is available. Manual Q buttons still work. */
+function syncPeriod(){
+  if(!S.field||!S.teams[0])return;
+  var L=liveFor(S.field);
+  if(!L||!L.ok||!L.period)return;
+  var p=Math.min(5,Math.max(1,+L.period));
+  var last=FEED.lastPeriod[S.field];
+  FEED.lastPeriod[S.field]=p;
+  if(last===undefined){ if(S.period!==p){S.period=p;save();renderAll()} return }
+  if(last===p)return;
+  S.period=p;save();
+  var busy=$("sheet").classList.contains("on")||$("ssheet").classList.contains("on");
+  if(busy){PENDING_GOALIES="Q"+p+" goalies";renderAll();return}
+  renderAll();openGoalies("Q"+p+" goalies");
+}
 function streamOf(f){return f==="F2"?2:1}
 function fetchMap(f){
   return fetch(""+streamOf(f))
@@ -225,6 +244,7 @@ function onFeed(data){
     (st.clocks.devices||[]).forEach(function(d){FEED.devices[d.id]=Object.assign({},d,{recv:now})});
     FEED.lastMsg=now;
     renderBoard();
+    syncPeriod();
   }catch(e){}
 }
 /* A reading counts only when the reader says live, is under 1.5 s old and its source reported within 3 s. */
@@ -382,7 +402,7 @@ function open(type,ev,team){
   D.f=fieldsOf(D)[0];
   drawSheet();$("sheet").classList.add("on");
 }
-function close(){$("sheet").classList.remove("on");D=null}
+function close(){$("sheet").classList.remove("on");D=null;flushPending()}
 function drawSheet(){
   var fs=fieldsOf(D);
   var h='<h3><span style="color:'+col(D.team)+'">'+(D.id?"Edit ":"")+LABEL[D.type]+' · '+esc(S.names[D.team])+'</span>'+(D.id?'<span><button class="del mv" id="up" aria-label="Move earlier">Earlier</button><button class="del mv" id="dn" aria-label="Move later">Later</button><button class="del" id="del">Delete</button></span>':'')+'</h3>';
@@ -477,7 +497,7 @@ function openSetup(){
   SU={field:S.field,home:S.teams[0]||"",away:S.teams[1]||"",r:[numsOf(0),numsOf(1)]};
   startArmed=false;drawSetup();$("ssheet").classList.add("on");
 }
-function closeSetup(){$("ssheet").classList.remove("on")}
+function closeSetup(){$("ssheet").classList.remove("on");flushPending()}
 function teamOptions(sel){
   var t=PB().teams,ids=Object.keys(t).sort(function(a,b){return t[a].name.localeCompare(t[b].name)});
   return '<option value="">Choose a team…</option>'+ids.map(function(id){return '<option value="'+id+'"'+(id===sel?' selected':'')+'>'+esc(t[id].name)+'</option>'}).join("");
@@ -516,7 +536,7 @@ function startGame(){
   S.field=SU.field;
   S.gameCode=g?g.code:"";
   S.rosters=[SU.r[0].join(" "),SU.r[1].join(" ")];
-  S.goalies=["",""];S.events=[];S.nid=1;S.period=1;
+  S.goalies=["",""];S.events=[];S.nid=1;S.period=1;FEED.lastPeriod={};PENDING_GOALIES=null;
   save();closeSetup();renderAll();
   openGoalies("Starting goalies");
   fetchMap(SU.field).then(function(){renderBoard()});
