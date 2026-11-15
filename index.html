@@ -58,9 +58,10 @@ h2{font-family:var(--disp);font-size:16px;letter-spacing:.04em;text-transform:up
   .gbar button{font-size:15px} .periods button{font-size:15px}
 }
 .log{display:flex;flex-direction:column;gap:6px}
-.item{display:grid;grid-template-columns:50px 1fr auto;gap:8px;align-items:center;text-align:left;width:100%;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-left:5px solid var(--c);border-radius:8px}
-.item .t{font:700 18px var(--disp);font-variant-numeric:tabular-nums}
+.item{display:grid;grid-template-columns:84px 1fr auto;gap:8px;align-items:center;text-align:left;width:100%;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-left:5px solid var(--c);border-radius:8px}
+.item .t{font:700 30px/1 var(--disp);font-variant-numeric:tabular-nums}
 .item .t.miss{color:var(--bad)}
+.item .at{display:block;font:400 11px var(--body);color:var(--muted);margin-top:3px}
 .item .p{color:var(--muted);font-size:12px}
 .empty{color:var(--muted);padding:10px 0}
 .tw{overflow-x:auto}
@@ -126,7 +127,6 @@ caption{caption-side:top;text-align:left;font-weight:700;padding:6px 0;color:var
 <body>
 
 <div class="top">
-  <button class="ghost" id="setupBtn">Setup</button>
   <div class="info" id="info">Tap Setup to start a game</div>
 </div>
 <div class="board" id="board"></div>
@@ -148,8 +148,8 @@ caption{caption-side:top;text-align:left;font-weight:700;padding:6px 0;color:var
 </div>
 <div class="row">
   <button class="ghost" id="undo">Undo last</button>
-  <button class="ghost" id="clk"></button>
   <button class="ghost" id="copy">Copy CSV</button>
+  <button class="ghost" id="setupBtn">Setup</button>
   <button class="ghost" id="reset">New game</button>
 </div>
 <div class="toast" id="toast" aria-live="polite"></div>
@@ -167,6 +167,7 @@ caption{caption-side:top;text-align:left;font-weight:700;padding:6px 0;color:var
 <script src="data/pointbench.js"></script>
 <script>
 var LABEL={goal:"Goal",save:"Save",wide:"Wide",post:"Post",blocked:"Blocked",gb:"Ground ball",pen:"Penalty"};
+var PENS=["30 sec","1 min","2 min"]; // penalty durations
 var PTYPES=["Slash","Hold","Cross-check","Push","Trip","Illegal check","Other"];
 var KEY="sixes-stat-tapper-v1", SKEY="sixes-stat-settings";
 var S={names:["Home","Away"],teams:["",""],field:"",gameCode:"",period:1,events:[],nid:1,rosters:["",""],goalies:["",""]};
@@ -180,6 +181,7 @@ function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return
 function col(t){return t===0?"var(--a)":"var(--b)"}
 function fmtTime(d){if(!d)return"";var m=d.length>2?d.slice(0,-2):"0",s=d.slice(-2);if(s.length<2)s="0"+s;return m+":"+s}
 function toast(m){$("toast").textContent=m;clearTimeout(toast.h);toast.h=setTimeout(function(){$("toast").textContent=""},3500)}
+function hhmmss(ms){var d=new Date(ms);function p(n){return n<10?"0"+n:""+n}return p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
 function vib(){try{navigator.vibrate&&navigator.vibrate(10)}catch(e){}}
 function numsSort(list){var seen={};return list.filter(function(x){if(!x||seen[x])return false;seen[x]=1;return true}).sort(function(a,b){return a-b})}
 function roster(t){return numsSort(String(S.rosters[t]||"").split(/\D+/))}
@@ -279,9 +281,8 @@ function tally(){
 function renderScore(){
   var T=tally(),h="";
   [0,1].forEach(function(i){
-    var pens=S.events.filter(function(e){return e.type==="pen"&&e.team===i}).length;
     h+='<div class="team" style="--c:'+col(i)+'"><input id="nm'+i+'" aria-label="Team '+(i+1)+' name" value="'+esc(S.names[i])+'">'+
-       '<div class="n">'+T[i].g+'</div><div class="s">Shots '+T[i].sh+' · SOG '+T[i].sog+' · Saves '+T[i].sv+' · GB '+T[i].gb+' · Pen '+pens+'</div></div>';
+       '<div class="n">'+T[i].g+'</div><div class="s">Goals</div></div>';
   });
   $("score").innerHTML=h;
   [0,1].forEach(function(i){$("nm"+i).addEventListener("input",function(ev){S.names[i]=ev.target.value||(i?"Away":"Home");save();renderInfo();renderBox();renderLog()})});
@@ -316,17 +317,18 @@ function renderPeriods(){
 function who(e){
   var t=e.shooter?"#"+e.shooter:"#?";
   if(e.type==="goal"){if(e.assist==="none")t+=", unassisted";else if(e.assist)t+=", assist #"+e.assist}
-  if(e.type==="pen"){if(e.ptype)t+=", "+e.ptype;if(e.minutes)t+=", "+e.minutes+" min"}
+  if(e.type==="pen"){if(e.ptype)t+=", "+e.ptype;if(e.minutes)t+=", "+e.minutes}
   return t;
 }
 function renderLog(){
   if(!S.events.length){$("log").innerHTML='<div class="empty">No events yet. Tap a Goal, Save, Wide, Ground ball or Penalty.</div>';return}
   var h="";
-  S.events.slice().reverse().forEach(function(e){
+  S.events.forEach(function(e){
     var isG=e.type==="goal"||e.type==="pen",miss=e.type==="goal"&&!e.time;
+    var big=e.time?fmtTime(e.time):(e.board?fmtTime(e.board):"--:--");
     var p=(e.period<5?"Q"+e.period:"OT")+" · "+esc(S.names[e.team]);
     if(e.goalie)p+=" · G #"+e.goalie;
-    h+='<button class="item" style="--c:'+col(e.team)+'" data-id="'+e.id+'"><span class="t'+(miss?" miss":"")+'">'+(isG?(miss?"--:--":fmtTime(e.time)):"")+'</span>'+
+    h+='<button class="item" style="--c:'+col(e.team)+'" data-id="'+e.id+'"><span class="t'+(miss?" miss":"")+'">'+big+(e.at?'<span class="at">'+hhmmss(e.at)+'</span>':'')+'</span>'+
        '<span class="d"><b>'+esc(LABEL[e.type])+'</b> '+esc(who(e))+'<div class="p">'+p+'</div></span><span aria-hidden="true">›</span></button>';
   });
   $("log").innerHTML=h;
@@ -401,9 +403,9 @@ function fieldsOf(d){
 var FL={shooter:"Shooter",assist:"Assist",goalie:"Goalie",time:"Time",ptype:"Type",minutes:"Minutes"};
 function open(type,ev,team){
   if(ev){
-    D={id:ev.id,type:ev.type,team:ev.team,period:ev.period,shooter:ev.shooter||"",assist:ev.assist||"",goalie:ev.goalie||"",time:ev.time||"",ptype:ev.ptype||"",minutes:ev.minutes||"",live:false,skipGoalie:false};
+    D={id:ev.id,type:ev.type,team:ev.team,period:ev.period,shooter:ev.shooter||"",assist:ev.assist||"",goalie:ev.goalie||"",time:ev.time||"",ptype:ev.ptype||"",minutes:ev.minutes||"",at:ev.at,board:ev.board,live:false,skipGoalie:false};
   }else{
-    D={id:0,type:type,team:team,period:S.period,shooter:"",assist:"",goalie:"",time:"",ptype:"",minutes:"",live:false,skipGoalie:false};
+    D={id:0,type:type,team:team,period:S.period,shooter:"",assist:"",goalie:"",time:"",ptype:"",minutes:"",at:Date.now(),board:liveDigits(),live:false,skipGoalie:false};
     if(type==="save"&&S.goalies[1-team]){D.goalie=S.goalies[1-team];D.skipGoalie=true}
     if(type==="goal"||type==="pen"){var lt=liveDigits();if(lt){D.time=lt;D.live=true}}
   }
@@ -426,7 +428,12 @@ function drawSheet(){
   });
   h+='</div>';
   var rt=D.f==="goalie"?1-D.team:D.team,ros=(D.f==="time"||D.f==="minutes"||D.f==="ptype")?[]:roster(rt);
-  if(D.f==="ptype"){
+  if(D.f==="minutes"){
+    h+='<div class="chips" style="grid-template-columns:repeat(3,1fr)">';
+    PENS.forEach(function(t){h+='<button class="w" data-n="'+esc(t)+'">'+esc(t)+'</button>'});
+    h+='</div>';
+  }
+  else if(D.f==="ptype"){
     h+='<div class="chips" style="grid-template-columns:repeat(2,1fr)">';
     PTYPES.forEach(function(t){h+='<button class="w" data-n="'+esc(t)+'">'+esc(t)+'</button>'});
     h+='</div>';
@@ -471,16 +478,8 @@ function pressKey(k){vib();
 function down(){return S.down!==false}
 function secs(t){return (+t.slice(0,-2)||0)*60+(+t.slice(-2)||0)}
 function pv(t){return down()?-secs(t):secs(t)}
-function place(e){
-  var ev=S.events,at=-1,i;
-  if((e.type==="goal"||e.type==="pen")&&e.time){
-    for(i=0;i<ev.length;i++){var x=ev[i];if(x.period===e.period&&(x.type==="goal"||x.type==="pen")&&x.time&&pv(x.time)<=pv(e.time))at=i}
-    if(at<0){var f=ev.length;for(i=0;i<ev.length;i++){if(ev[i].period>=e.period){f=i;break}}at=f-1}
-  }else{
-    for(i=0;i<ev.length;i++){if(ev[i].period<=e.period)at=i}
-  }
-  ev.splice(at+1,0,e);
-}
+/* Log keeps the order events were tapped in. */
+function place(e){S.events.push(e)}
 function move(id,d){
   var i=S.events.findIndex(function(x){return x.id===id}),j=i+d;
   if(j<0||j>=S.events.length)return;
@@ -489,11 +488,10 @@ function move(id,d){
 function commit(){
   if(D.team===null)return;
   var timed=D.type==="goal"||D.type==="pen";
-  var e={id:D.id||S.nid++,type:D.type,team:D.team,period:D.period,shooter:D.shooter,assist:D.type==="goal"?D.assist:"",goalie:D.type==="save"?D.goalie:"",time:timed?D.time:"",ptype:D.type==="pen"?(D.ptype||""):"",minutes:D.type==="pen"?(D.minutes||""):""};
+  var e={id:D.id||S.nid++,type:D.type,team:D.team,period:D.period,shooter:D.shooter,assist:D.type==="goal"?D.assist:"",goalie:D.type==="save"?D.goalie:"",time:timed?D.time:"",ptype:D.type==="pen"?(D.ptype||""):"",minutes:D.type==="pen"?(D.minutes||""):"",at:D.at,board:D.board};
   if(D.id){
-    var i=S.events.findIndex(function(x){return x.id===D.id}),old=S.events[i];
-    if(e.period!==old.period||(timed&&e.time&&e.time!==old.time)){S.events.splice(i,1);place(e)}
-    else S.events[i]=e;
+    var i=S.events.findIndex(function(x){return x.id===D.id});
+    S.events[i]=e;
   }else place(e);
   close();renderAll();
 }
@@ -604,7 +602,7 @@ $("card").addEventListener("click",function(ev){
   var b=ev.target.closest("button");if(!b||!D)return;
   if(b.dataset.team!==undefined){D.team=+b.dataset.team;drawSheet()}
   else if(b.dataset.p){D.period=+b.dataset.p;drawSheet()}
-  else if(b.id==="up"||b.id==="dn"){move(D.id,b.id==="up"?-1:1);renderAll();toast("Moved. Log lists newest first.")}
+  else if(b.id==="up"||b.id==="dn"){move(D.id,b.id==="up"?-1:1);renderAll();toast("Moved. Log lists events in tap order.")}
   else if(b.dataset.f){D.f=b.dataset.f;D.pad=false;drawSheet()}
   else if(b.dataset.n!==undefined)chip(b.dataset.n)
   else if(b.id==="pad"){D.pad=true;drawSheet()}
@@ -616,17 +614,14 @@ $("card").addEventListener("click",function(ev){
 });
 $("sheet").addEventListener("click",function(ev){if(ev.target===$("sheet"))close()});
 $("undo").addEventListener("click",function(){if(S.events.length){var last=S.events.reduce(function(a,b){return b.id>a.id?b:a});S.events=S.events.filter(function(x){return x.id!==last.id});renderAll();toast("Removed last entry.")}});
-function clkLabel(){$("clk").textContent="Clock counts "+(down()?"down":"up")}
-$("clk").addEventListener("click",function(){S.down=!down();clkLabel();save();toast("Goal times now order as a clock counting "+(down()?"down":"up")+".")});
-clkLabel();
 var armed=false;
 $("reset").addEventListener("click",function(){
   if(!armed){armed=true;$("reset").textContent="Tap again to clear all";setTimeout(function(){armed=false;$("reset").textContent="New game"},3000);return}
   S.events=[];S.period=1;S.nid=1;S.goalies=["",""];armed=false;$("reset").textContent="New game";renderAll();
 });
 $("copy").addEventListener("click",function(){
-  var rows=[["period","time","team","event","shooter","assist","goalie","penalty","minutes"]];
-  S.events.forEach(function(e){rows.push([e.period,fmtTime(e.time),S.names[e.team],e.type,e.shooter,e.assist==="none"?"":e.assist,e.goalie,e.ptype||"",e.minutes||""])});
+  var rows=[["period","game_time","board_clock","tapped_at","team","event","shooter","assist","goalie","penalty","minutes"]];
+  S.events.forEach(function(e){rows.push([e.period,fmtTime(e.time),fmtTime(e.board),e.at?hhmmss(e.at):"",S.names[e.team],e.type,e.shooter,e.assist==="none"?"":e.assist,e.goalie,e.ptype||"",e.minutes||""])});
   var csv=rows.map(function(r){return r.map(function(c){c=String(c==null?"":c);return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c}).join(",")}).join("\n");
   try{navigator.clipboard.writeText(csv).then(function(){toast("CSV copied. Paste into a sheet.")},function(){toast("Copy blocked. Press and hold the log to select.")})}
   catch(e){toast("Copy blocked on this device.")}
