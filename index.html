@@ -169,6 +169,8 @@ caption{caption-side:top;text-align:left;font-weight:700;padding:6px 0;color:var
 <script>
 var LABEL={goal:"Goal",save:"Save",wide:"Wide",post:"Post",blocked:"Blocked",gb:"Ground ball",pen:"Penalty"};
 var PENS=["30 sec","1 min","2 min"]; // penalty durations
+/* Main flag colour for each team (Pointbench ids). Used as the away default when a team is picked. */
+var FLAGS={aut:"#ed2939",cro:"#cf0a2c",cze:"#d7141a",esp:"#c60b1e",fin:"#003580",fra:"#002395",ger:"#000000",gbr:"#012169",gre:"#0d5eaf",hun:"#ce2939",irl:"#169b62",isr:"#0038b8",ita:"#009246",lat:"#9e3039",ned:"#f36c21",nor:"#ba0c2f",pol:"#dc143c",por:"#046a38",swe:"#fecb00",sui:"#d52b1e",tur:"#e30a17",ukr:"#005bbb"};
 var PTYPES=["Slash","Hold","Cross-check","Push","Trip","Illegal check","Other"];
 var KEY="sixes-stat-tapper-v1", SKEY="sixes-stat-settings";
 var S={names:["Home","Away"],teams:["",""],field:"",gameCode:"",period:1,events:[],nid:1,rosters:["",""],goalies:["",""],colors:["#ffffff","#0b5d4b"]};
@@ -543,8 +545,10 @@ function drawSetup(){
   h+='<div class="lbl">Scoreboard socket</div><input id="sf" type="url" placeholder="wss://…" value="'+esc(SET.feedUrl)+'">';
   h+='<div class="act"><button class="cancel" id="sx2">Cancel</button><button class="save" id="sstart">Start game</button></div>';
   $("scard").innerHTML=h;
+  applyColours(SU.colors);
 }
 function applyRosterFor(){
+  if(FLAGS[SU.away])SU.colors[1]=FLAGS[SU.away];
   SU.r=[PB().teams[SU.home]?numsSort(PB().teams[SU.home].roster.map(function(p){return p.number})):[],
         PB().teams[SU.away]?numsSort(PB().teams[SU.away].roster.map(function(p){return p.number})):[]];
 }
