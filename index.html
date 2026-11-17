@@ -49,7 +49,7 @@ h2{font-family:var(--disp);font-size:16px;letter-spacing:.04em;text-transform:up
 .periods button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .ev{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .ev button{min-height:58px;border-radius:10px;border:2px solid var(--c);background:var(--panel);font:700 22px var(--disp);letter-spacing:.03em;text-transform:uppercase}
-.ev .goal{min-height:76px;background:var(--c);color:var(--bg);font-size:28px}
+.ev .goal{min-height:76px;background:var(--cf);color:var(--con);font-size:28px}
 .ev button:active{transform:scale(.97)}
 .row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .ghost{padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);font-weight:600;font-size:14px}
@@ -69,7 +69,8 @@ table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font
 th,td{padding:5px 6px;text-align:right;border-bottom:1px solid var(--line)}
 th:first-child,td:first-child{text-align:left}
 th{font:600 11px var(--body);color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
-caption{caption-side:top;text-align:left;font-weight:700;padding:6px 0;color:var(--c)}
+caption{caption-side:top;text-align:left;font-weight:700;padding:6px 0;color:var(--ink)}
+.col{width:100%;height:44px;padding:3px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
 .ov{position:fixed;inset:0;display:none;background:rgba(0,0,0,.45);z-index:10}
 .ov.on{display:flex;align-items:flex-end;justify-content:center}
 .card{background:var(--panel);width:100%;max-width:640px;border-radius:14px 14px 0 0;padding:12px 14px calc(12px + env(safe-area-inset-bottom));max-height:96%;overflow:auto}
@@ -78,7 +79,7 @@ caption{caption-side:top;text-align:left;font-weight:700;padding:6px 0;color:var
 .sub{color:var(--muted);font-size:12px;margin:-2px 0 8px}
 .teams{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px}
 .teams button{padding:10px 6px;border-radius:8px;border:2px solid var(--line);background:var(--bg);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.teams button[aria-pressed="true"]{background:var(--c);border-color:var(--c);color:#fff}
+.teams button[aria-pressed="true"]{background:var(--cf);border-color:var(--c);color:var(--con)}
 .pers{display:flex;gap:4px;margin-bottom:6px}
 .pers button{flex:1;padding:6px 0;border-radius:8px;border:1px solid var(--line);background:var(--bg);font-weight:700;font-size:14px}
 .pers button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
@@ -135,16 +136,16 @@ caption{caption-side:top;text-align:left;font-weight:700;padding:6px 0;color:var
 <div class="periods" id="periods" role="group" aria-label="Quarter"></div>
 
 <div class="ev" id="ev">
-  <button class="goal" style="--c:var(--a)" data-t="goal" data-tm="0">Goal</button>
-  <button class="goal" style="--c:var(--b)" data-t="goal" data-tm="1">Goal</button>
-  <button style="--c:var(--a)" data-t="save" data-tm="0">Save</button>
-  <button style="--c:var(--b)" data-t="save" data-tm="1">Save</button>
-  <button style="--c:var(--a)" data-t="wide" data-tm="0">Wide</button>
-  <button style="--c:var(--b)" data-t="wide" data-tm="1">Wide</button>
-  <button style="--c:var(--a)" data-t="gb" data-tm="0">Ground ball</button>
-  <button style="--c:var(--b)" data-t="gb" data-tm="1">Ground ball</button>
-  <button style="--c:var(--a)" data-t="pen" data-tm="0">Penalty</button>
-  <button style="--c:var(--b)" data-t="pen" data-tm="1">Penalty</button>
+  <button class="goal" style="--c:var(--aline);--cf:var(--a);--con:var(--aon)" data-t="goal" data-tm="0">Goal</button>
+  <button class="goal" style="--c:var(--bline);--cf:var(--b);--con:var(--bon)" data-t="goal" data-tm="1">Goal</button>
+  <button style="--c:var(--aline);--cf:var(--a);--con:var(--aon)" data-t="save" data-tm="0">Save</button>
+  <button style="--c:var(--bline);--cf:var(--b);--con:var(--bon)" data-t="save" data-tm="1">Save</button>
+  <button style="--c:var(--aline);--cf:var(--a);--con:var(--aon)" data-t="wide" data-tm="0">Wide</button>
+  <button style="--c:var(--bline);--cf:var(--b);--con:var(--bon)" data-t="wide" data-tm="1">Wide</button>
+  <button style="--c:var(--aline);--cf:var(--a);--con:var(--aon)" data-t="gb" data-tm="0">Ground ball</button>
+  <button style="--c:var(--bline);--cf:var(--b);--con:var(--bon)" data-t="gb" data-tm="1">Ground ball</button>
+  <button style="--c:var(--aline);--cf:var(--a);--con:var(--aon)" data-t="pen" data-tm="0">Penalty</button>
+  <button style="--c:var(--bline);--cf:var(--b);--con:var(--bon)" data-t="pen" data-tm="1">Penalty</button>
 </div>
 <div class="row">
   <button class="ghost" id="undo">Undo last</button>
@@ -170,7 +171,7 @@ var LABEL={goal:"Goal",save:"Save",wide:"Wide",post:"Post",blocked:"Blocked",gb:
 var PENS=["30 sec","1 min","2 min"]; // penalty durations
 var PTYPES=["Slash","Hold","Cross-check","Push","Trip","Illegal check","Other"];
 var KEY="sixes-stat-tapper-v1", SKEY="sixes-stat-settings";
-var S={names:["Home","Away"],teams:["",""],field:"",gameCode:"",period:1,events:[],nid:1,rosters:["",""],goalies:["",""]};
+var S={names:["Home","Away"],teams:["",""],field:"",gameCode:"",period:1,events:[],nid:1,rosters:["",""],goalies:["",""],colors:["#ffffff","#0b5d4b"]};
 try{var raw=localStorage.getItem(KEY);if(raw){var p=JSON.parse(raw);if(p&&p.events)S=Object.assign(S,p);}}catch(e){}
 var SET={feedUrl:"wss://apps.playit.pt/socket?app=world-lacrosse-2026"};
 try{var sraw=localStorage.getItem(SKEY);if(sraw)SET=Object.assign(SET,JSON.parse(sraw));}catch(e){}
@@ -178,7 +179,19 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 function saveSet(){try{localStorage.setItem(SKEY,JSON.stringify(SET));}catch(e){}}
 function $(id){return document.getElementById(id)}
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
-function col(t){return t===0?"var(--a)":"var(--b)"}
+function col(t){return t===0?"var(--aline)":"var(--bline)"}
+function tv(i){return "--c:"+col(i)+";--cf:var("+(i?"--b":"--a")+");--con:var("+(i?"--bon":"--aon")+")"}
+function lum(h){var n=parseInt(h.slice(1),16),r=(n>>16&255)/255,g=(n>>8&255)/255,b=(n&255)/255;function f(c){return c<=0.03928?c/12.92:Math.pow((c+0.055)/1.055,2.4)}return 0.2126*f(r)+0.7152*f(g)+0.0722*f(b)}
+/* Team colours: fill, readable text on the fill, and a border colour that stays visible on white. */
+function applyColours(cols){
+  var root=document.documentElement.style;
+  [0,1].forEach(function(i){
+    var c=cols[i]||(i?"#0b5d4b":"#ffffff"),l=lum(c),pre=i?"--b":"--a";
+    root.setProperty(pre,c);
+    root.setProperty(pre+"on",l>0.5?"#14201b":"#ffffff");
+    root.setProperty(pre+"line",l>0.8?"#5d6b64":c);
+  });
+}
 function fmtTime(d){if(!d)return"";var m=d.length>2?d.slice(0,-2):"0",s=d.slice(-2);if(s.length<2)s="0"+s;return m+":"+s}
 function toast(m){$("toast").textContent=m;clearTimeout(toast.h);toast.h=setTimeout(function(){$("toast").textContent=""},3500)}
 function hhmmss(ms){var d=new Date(ms);function p(n){return n<10?"0"+n:""+n}return p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
@@ -364,7 +377,7 @@ function renderBox(){
   });
   $("box").innerHTML=h;
 }
-function renderAll(){renderScore();renderInfo();renderBoard();renderGoalies();renderPeriods();renderLog();renderBox();save()}
+function renderAll(){applyColours(S.colors);renderScore();renderInfo();renderBoard();renderGoalies();renderPeriods();renderLog();renderBox();save()}
 
 /* ---------- goalies: set, keep, and the quarter prompt ---------- */
 var GTITLE="",GNEW=[false,false];
@@ -420,7 +433,7 @@ function drawSheet(){
   h+='<div class="pers">';
   for(var q=1;q<=5;q++){h+='<button data-p="'+q+'" aria-pressed="'+(D.period===q)+'">'+(q<5?"Q"+q:"OT")+'</button>'}
   h+='</div>';
-  if(D.id){h+='<div class="teams">';[0,1].forEach(function(i){h+='<button style="--c:'+col(i)+'" data-team="'+i+'" aria-pressed="'+(D.team===i)+'">'+esc(S.names[i])+'</button>'});h+='</div>';}
+  if(D.id){h+='<div class="teams">';[0,1].forEach(function(i){h+='<button style="'+tv(i)+'" data-team="'+i+'" aria-pressed="'+(D.team===i)+'">'+esc(S.names[i])+'</button>'});h+='</div>';}
   h+='<div class="fields">';
   fs.forEach(function(f){
     var v=f==="time"?fmtTime(D.time):(D[f]==="none"?"None":D[f]);
@@ -500,10 +513,10 @@ function commit(){
 var SU=null,startArmed=false;
 function numsOf(t){return roster(t)}
 function openSetup(){
-  SU={field:S.field,home:S.teams[0]||"",away:S.teams[1]||"",r:[numsOf(0),numsOf(1)]};
+  SU={field:S.field,home:S.teams[0]||"",away:S.teams[1]||"",r:[numsOf(0),numsOf(1)],colors:S.colors.slice()};
   startArmed=false;drawSetup();$("ssheet").classList.add("on");
 }
-function closeSetup(){$("ssheet").classList.remove("on");flushPending()}
+function closeSetup(){$("ssheet").classList.remove("on");applyColours(S.colors);flushPending()}
 function teamOptions(sel){
   var t=PB().teams,ids=Object.keys(t).sort(function(a,b){return t[a].name.localeCompare(t[b].name)});
   return '<option value="">Choose a team…</option>'+ids.map(function(id){return '<option value="'+id+'"'+(id===sel?' selected':'')+'>'+esc(t[id].name)+'</option>'}).join("");
@@ -519,6 +532,8 @@ function drawSetup(){
   h+='</div>';
   h+='<div class="lbl">Home team</div><select id="sh">'+teamOptions(SU.home)+'</select>';
   h+='<div class="lbl">Away team</div><select id="sa">'+teamOptions(SU.away)+'</select>';
+  h+='<div class="lbl">Home colour</div><input type="color" class="col" id="sc0" value="'+SU.colors[0]+'">';
+  h+='<div class="lbl">Away colour</div><input type="color" class="col" id="sc1" value="'+SU.colors[1]+'">';
   h+='<div class="note" id="sg">'+esc(gnote)+'</div>';
   [0,1].forEach(function(i){
     h+='<div class="lbl">'+esc(SU.home&&SU.away?teamName(i?SU.away:SU.home):(i?"Away":"Home"))+' numbers</div>'+
@@ -540,6 +555,7 @@ function startGame(){
   S.teams=[SU.home,SU.away];
   S.names=[teamName(SU.home),teamName(SU.away)];
   S.field=SU.field;
+  S.colors=SU.colors.slice();
   S.gameCode=g?g.code:"";
   S.rosters=[SU.r[0].join(" "),SU.r[1].join(" ")];
   S.goalies=["",""];S.events=[];S.nid=1;S.period=1;FEED.lastPeriod={};PENDING_GOALIES=null;
@@ -574,6 +590,7 @@ $("ssheet").addEventListener("change",function(ev){
   if(ev.target.id==="sh"){SU.home=ev.target.value;applyRosterFor();drawSetup()}
   else if(ev.target.id==="sa"){SU.away=ev.target.value;applyRosterFor();drawSetup()}
   else if(ev.target.id==="sf"){SET.feedUrl=ev.target.value.trim();saveSet();connectFeed()}
+  else if(ev.target.id==="sc0"||ev.target.id==="sc1"){SU.colors[+ev.target.id.slice(2)]=ev.target.value;applyColours(SU.colors)}
 });
 $("ssheet").addEventListener("keydown",function(ev){
   if(ev.key==="Enter"&&ev.target.id&&ev.target.id.indexOf("si")===0){ev.preventDefault();var i=+ev.target.id.slice(2);var v=ev.target.value.replace(/\D/g,"");if(v){SU.r[i]=numsSort(SU.r[i].concat([v]));drawSetup();$("si"+i).focus()}}
