@@ -121,6 +121,11 @@ caption{caption-side:top;text-align:left;font-weight:700;padding:6px 0;color:var
 .gin{display:flex;gap:6px;margin-top:6px}
 .gin input{flex:1;min-width:0}
 .gin button{padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);font-weight:700}
+.shot{display:flex;gap:8px;align-items:center;margin:4px 0 2px}
+.scn{font:700 40px/1 var(--disp);min-width:72px;text-align:center;font-variant-numeric:tabular-nums;border:2px solid var(--line);border-radius:10px;padding:4px 8px}
+.scn.zero{color:var(--bad);border-color:var(--bad)}
+.filebtn{position:relative;display:inline-block}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
 .toast{color:var(--muted);font-size:13px;min-height:18px;margin-top:6px}
 @media (prefers-reduced-motion:no-preference){.card{animation:up .15s ease-out}@keyframes up{from{transform:translateY(20px);opacity:.6}}}
 </style>
@@ -134,6 +139,7 @@ caption{caption-side:top;text-align:left;font-weight:700;padding:6px 0;color:var
 <div class="score" id="score"></div>
 <div class="gbar" id="gbar"></div>
 <div class="periods" id="periods" role="group" aria-label="Quarter"></div>
+<div class="shot"><div class="scn" id="scNum">30</div><button class="ghost" id="scStart">Start shot clock</button><button class="ghost" id="scReset">Reset 30</button></div>
 
 <div class="ev" id="ev">
   <button class="goal" style="--c:var(--aline);--cf:var(--a);--con:var(--aon)" data-t="goal" data-tm="0">Goal</button>
@@ -150,6 +156,8 @@ caption{caption-side:top;text-align:left;font-weight:700;padding:6px 0;color:var
 <div class="row">
   <button class="ghost" id="undo">Undo last</button>
   <button class="ghost" id="copy">Copy CSV</button>
+  <button class="ghost" id="saveFile">Save file</button>
+  <label class="ghost filebtn">Open file<input type="file" id="openFile" accept=".json,application/json"></label>
   <button class="ghost" id="setupBtn">Setup</button>
   <button class="ghost" id="reset">New game</button>
 </div>
@@ -169,6 +177,7 @@ caption{caption-side:top;text-align:left;font-weight:700;padding:6px 0;color:var
 <script>
 var LABEL={goal:"Goal",save:"Save",wide:"Wide",post:"Post",blocked:"Blocked",gb:"Ground ball",pen:"Penalty"};
 var PENS=["30 sec","1 min","2 min"]; // penalty durations
+var CARDS=["None","Yellow","Green","Red"]; // penalty card colours
 /* Main flag colour for each team (Pointbench ids). Used as the away default when a team is picked. */
 var FLAGS={aut:"#ed2939",cro:"#cf0a2c",cze:"#d7141a",esp:"#c60b1e",fin:"#003580",fra:"#002395",ger:"#000000",gbr:"#012169",gre:"#0d5eaf",hun:"#ce2939",irl:"#169b62",isr:"#0038b8",ita:"#009246",lat:"#9e3039",ned:"#f36c21",nor:"#ba0c2f",pol:"#dc143c",por:"#046a38",swe:"#fecb00",sui:"#d52b1e",tur:"#e30a17",ukr:"#005bbb"};
 var PTYPES=["Slash","Hold","Cross-check","Push","Trip","Illegal check","Other"];
@@ -332,7 +341,7 @@ function renderPeriods(){
 function who(e){
   var t=e.shooter?"#"+e.shooter:"#?";
   if(e.type==="goal"){if(e.assist==="none")t+=", unassisted";else if(e.assist)t+=", assist #"+e.assist}
-  if(e.type==="pen"){if(e.ptype)t+=", "+e.ptype;if(e.minutes)t+=", "+e.minutes}
+  if(e.type==="pen"){if(e.card&&e.card!=="None")t+=", "+e.card+" card";if(e.ptype)t+=", "+e.ptype;if(e.minutes)t+=", "+e.minutes}
   return t;
 }
 function renderLog(){
@@ -411,16 +420,16 @@ function drawGoalies(){
 /* ---------- event entry sheet ---------- */
 var D=null;
 function fieldsOf(d){
-  var f=d.type==="goal"?["time","shooter","assist"]:d.type==="save"?(d.skipGoalie?["shooter"]:["shooter","goalie"]):d.type==="pen"?["time","shooter","ptype","minutes"]:["shooter"];
+  var f=d.type==="goal"?["time","shooter","assist"]:d.type==="save"?(d.skipGoalie?["shooter"]:["shooter","goalie"]):d.type==="pen"?["time","shooter","card","ptype","minutes"]:["shooter"];
   if(d.live)f=f.filter(function(x){return x!=="time"});
   return f;
 }
-var FL={shooter:"Shooter",assist:"Assist",goalie:"Goalie",time:"Time",ptype:"Type",minutes:"Minutes"};
+var FL={shooter:"Shooter",assist:"Assist",goalie:"Goalie",time:"Time",card:"Card",ptype:"Type",minutes:"Minutes"};
 function open(type,ev,team){
   if(ev){
-    D={id:ev.id,type:ev.type,team:ev.team,period:ev.period,shooter:ev.shooter||"",assist:ev.assist||"",goalie:ev.goalie||"",time:ev.time||"",ptype:ev.ptype||"",minutes:ev.minutes||"",at:ev.at,board:ev.board,live:false,skipGoalie:false};
+    D={id:ev.id,type:ev.type,team:ev.team,period:ev.period,shooter:ev.shooter||"",assist:ev.assist||"",goalie:ev.goalie||"",time:ev.time||"",ptype:ev.ptype||"",minutes:ev.minutes||"",card:ev.card||"",at:ev.at,board:ev.board,live:false,skipGoalie:false};
   }else{
-    D={id:0,type:type,team:team,period:S.period,shooter:"",assist:"",goalie:"",time:"",ptype:"",minutes:"",at:Date.now(),board:liveDigits(),live:false,skipGoalie:false};
+    D={id:0,type:type,team:team,period:S.period,shooter:"",assist:"",goalie:"",time:"",ptype:"",minutes:"",card:"",at:Date.now(),board:liveDigits(),live:false,skipGoalie:false};
     if(type==="save"&&S.goalies[1-team]){D.goalie=S.goalies[1-team];D.skipGoalie=true}
     if(type==="goal"||type==="pen"){var lt=liveDigits();if(lt){D.time=lt;D.live=true}}
   }
@@ -443,7 +452,12 @@ function drawSheet(){
   });
   h+='</div>';
   var rt=D.f==="goalie"?1-D.team:D.team,ros=(D.f==="time"||D.f==="minutes"||D.f==="ptype")?[]:roster(rt);
-  if(D.f==="minutes"){
+  if(D.f==="card"){
+    h+='<div class="chips" style="grid-template-columns:repeat(4,1fr)">';
+    CARDS.forEach(function(t){h+='<button class="w" data-n="'+esc(t)+'">'+esc(t)+'</button>'});
+    h+='</div>';
+  }
+  else if(D.f==="minutes"){
     h+='<div class="chips" style="grid-template-columns:repeat(3,1fr)">';
     PENS.forEach(function(t){h+='<button class="w" data-n="'+esc(t)+'">'+esc(t)+'</button>'});
     h+='</div>';
@@ -503,7 +517,7 @@ function move(id,d){
 function commit(){
   if(D.team===null)return;
   var timed=D.type==="goal"||D.type==="pen";
-  var e={id:D.id||S.nid++,type:D.type,team:D.team,period:D.period,shooter:D.shooter,assist:D.type==="goal"?D.assist:"",goalie:D.type==="save"?D.goalie:"",time:timed?D.time:"",ptype:D.type==="pen"?(D.ptype||""):"",minutes:D.type==="pen"?(D.minutes||""):"",at:D.at,board:D.board};
+  var e={id:D.id||S.nid++,type:D.type,team:D.team,period:D.period,shooter:D.shooter,assist:D.type==="goal"?D.assist:"",goalie:D.type==="save"?D.goalie:"",time:timed?D.time:"",ptype:D.type==="pen"?(D.ptype||""):"",minutes:D.type==="pen"?(D.minutes||""):"",card:D.type==="pen"?(D.card||""):"",at:D.at,board:D.board};
   if(D.id){
     var i=S.events.findIndex(function(x){return x.id===D.id});
     S.events[i]=e;
@@ -641,11 +655,62 @@ $("reset").addEventListener("click",function(){
   S.events=[];S.period=1;S.nid=1;S.goalies=["",""];armed=false;$("reset").textContent="New game";renderAll();
 });
 $("copy").addEventListener("click",function(){
-  var rows=[["period","game_time","board_clock","tapped_at","team","event","shooter","assist","goalie","penalty","minutes"]];
-  S.events.forEach(function(e){rows.push([e.period,fmtTime(e.time),fmtTime(e.board),e.at?hhmmss(e.at):"",S.names[e.team],e.type,e.shooter,e.assist==="none"?"":e.assist,e.goalie,e.ptype||"",e.minutes||""])});
+  var rows=[["period","game_time","board_clock","tapped_at","team","event","shooter","assist","goalie","penalty","card","minutes"]];
+  S.events.forEach(function(e){rows.push([e.period,fmtTime(e.time),fmtTime(e.board),e.at?hhmmss(e.at):"",S.names[e.team],e.type,e.shooter,e.assist==="none"?"":e.assist,e.goalie,e.ptype||"",e.card||"",e.minutes||""])});
   var csv=rows.map(function(r){return r.map(function(c){c=String(c==null?"":c);return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c}).join(",")}).join("\n");
   try{navigator.clipboard.writeText(csv).then(function(){toast("CSV copied. Paste into a sheet.")},function(){toast("Copy blocked. Press and hold the log to select.")})}
   catch(e){toast("Copy blocked on this device.")}
+});
+
+/* shot clock: local 30-second countdown; tap to start or stop, reset puts it back to 30 */
+var SC={left:30,timer:null};
+function scDraw(){var n=$("scNum");n.textContent=SC.left;n.classList.toggle("zero",SC.left===0);$("scStart").textContent=SC.timer?"Stop shot clock":"Start shot clock"}
+function scStart(){
+  if(SC.timer){clearInterval(SC.timer);SC.timer=null;scDraw();return}
+  if(SC.left<=0)SC.left=30;
+  SC.timer=setInterval(function(){
+    SC.left--;
+    if(SC.left<=0){SC.left=0;clearInterval(SC.timer);SC.timer=null;vib()}
+    scDraw();
+  },1000);
+  scDraw();
+}
+$("scStart").addEventListener("click",scStart);
+$("scReset").addEventListener("click",function(){clearInterval(SC.timer);SC.timer=null;SC.left=30;scDraw()});
+scDraw();
+
+/* keep the screen awake while the app is open (where the browser supports it) */
+var WL=null;
+function keepAwake(){
+  if(!("wakeLock" in navigator)||document.visibilityState!=="visible"||WL)return;
+  navigator.wakeLock.request("screen").then(function(l){WL=l;l.addEventListener("release",function(){WL=null})}).catch(function(){});
+}
+document.addEventListener("visibilitychange",keepAwake);
+keepAwake();
+
+/* game file: the whole game as one JSON file, for backup and for moving between devices */
+function saveGameFile(){
+  var blob=new Blob([JSON.stringify({format:"sixes-stat-tapper",version:1,state:S},null,1)],{type:"application/json"});
+  var a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download=((S.names[0]||"home")+"-v-"+(S.names[1]||"away")+"-"+new Date().toISOString().slice(0,10)+".json").replace(/[^\w.-]+/g,"_");
+  document.body.appendChild(a);a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1000);
+  toast("Game file saved.");
+}
+$("saveFile").addEventListener("click",saveGameFile);
+$("openFile").addEventListener("change",function(ev){
+  var f=ev.target.files[0];if(!f)return;
+  var r=new FileReader();
+  r.onload=function(){
+    try{
+      var d=JSON.parse(r.result);
+      if(!d||d.format!=="sixes-stat-tapper"||!d.state||!Array.isArray(d.state.events)){toast("That is not a Sixes Stat Tapper game file.");return}
+      if(S.events.length&&!window.confirm("Replace the game on this screen with the file?"))return;
+      S=Object.assign(S,d.state);save();renderAll();
+      toast("Game loaded: "+S.names[0]+" v "+S.names[1]+".");
+    }catch(e){toast("Could not read that file.")}
+  };
+  r.readAsText(f);ev.target.value="";
 });
 
 renderAll();
