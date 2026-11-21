@@ -30,7 +30,8 @@ Two data and feed files sit next to it:
 
 - New events are saved as they are tapped. Log entries are in tap order, oldest first.
 - Every entry keeps its game time and its tap time. The CSV keeps `game_time`, `board_clock` and `tapped_at`.
-- Penalty durations are 30 sec, 1 min and 2 min.
+- Penalty durations are 30 sec, 1 min and 2 min. Penalties count down on the app's own game clock, pause when it stops, and show a release panel until the player is back on.
+- The game clock is the app's own. The scoreboard feed is optional and empty by default.
 - Team colours come from Setup. Home defaults to white. Away defaults to its flag colour.
 - Light and dark theme use CSS variables.
 
