@@ -121,6 +121,13 @@ caption{caption-side:top;text-align:left;font-weight:700;padding:6px 0;color:var
 .gin{display:flex;gap:6px;margin-top:6px}
 .gin input{flex:1;min-width:0}
 .gin button{padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);font-weight:700}
+.gclk{display:flex;gap:8px;align-items:center;margin:6px 0 2px;flex-wrap:wrap}
+.gc{font:700 52px/1 var(--disp);min-width:150px;text-align:center;font-variant-numeric:tabular-nums;border:2px solid var(--ink);border-radius:10px;padding:4px 8px}
+.pens{display:flex;flex-direction:column;gap:6px}
+.pen{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-left:5px solid var(--c);border-radius:8px}
+.pen .big{font:700 26px/1 var(--disp);font-variant-numeric:tabular-nums}
+.pen .sm{font-size:12px;color:var(--muted)}
+.pen button{padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);font-weight:700}
 .shot{display:flex;gap:8px;align-items:center;margin:4px 0 2px}
 .scn{font:700 40px/1 var(--disp);min-width:72px;text-align:center;font-variant-numeric:tabular-nums;border:2px solid var(--line);border-radius:10px;padding:4px 8px}
 .scn.zero{color:var(--bad);border-color:var(--bad)}
@@ -139,6 +146,7 @@ caption{caption-side:top;text-align:left;font-weight:700;padding:6px 0;color:var
 <div class="score" id="score"></div>
 <div class="gbar" id="gbar"></div>
 <div class="periods" id="periods" role="group" aria-label="Quarter"></div>
+<div class="gclk"><div class="gc" id="gcNum">08:00</div><button class="ghost" id="gcBtn">Start clock</button><button class="ghost" id="gcSet">Set clock</button></div>
 <div class="shot"><div class="scn" id="scNum">30</div><button class="ghost" id="scStart">Start shot clock</button><button class="ghost" id="scReset">Reset 30</button></div>
 
 <div class="ev" id="ev">
@@ -163,6 +171,9 @@ caption{caption-side:top;text-align:left;font-weight:700;padding:6px 0;color:var
 </div>
 <div class="toast" id="toast" aria-live="polite"></div>
 
+<h2>Penalties</h2>
+<div class="pens" id="pens"></div>
+
 <h2>Log</h2>
 <div class="log" id="log"></div>
 
@@ -178,6 +189,61 @@ caption{caption-side:top;text-align:left;font-weight:700;padding:6px 0;color:var
 var LABEL={goal:"Goal",save:"Save",wide:"Wide",post:"Post",blocked:"Blocked",gb:"Ground ball",pen:"Penalty"};
 var PENS=["30 sec","1 min","2 min"]; // penalty durations
 var CARDS=["None","Yellow","Green","Red"]; // penalty card colours
+var DUR={"30 sec":30,"1 min":60,"2 min":120}; // seconds of game-clock time served
+function durOf(l){return DUR[l]||0}
+/* Game clock. S.clock keeps the time left at the last stop (left), the time the clock last started running (runSince, null when stopped), and the game seconds run so far (gsec). Penalties count against gsec, so they keep time through pauses and quarter changes. */
+function plenOf(){return S.plen||480}
+function otOf(){return S.otlen||300}
+function lenOfPeriod(){return S.period===5?otOf():plenOf()}
+function clockInit(){if(!S.clock)S.clock={left:plenOf(),runSince:null,gsec:0}}
+function clockRunning(){clockInit();return S.clock.runSince!=null}
+function elapsedS(){return clockRunning()?(Date.now()-S.clock.runSince)/1000:0}
+function curLeft(){clockInit();return Math.max(0,S.clock.left-elapsedS())}
+function curG(){clockInit();return S.clock.gsec+elapsedS()}
+function fmt2(sec){sec=Math.max(0,Math.floor(sec));var m=Math.floor(sec/60),r=sec%60;return (m<10?"0":"")+m+":"+(r<10?"0":"")+r}
+function clockDigits(){return fmt2(curLeft()).replace(":","")}
+function startClock(){
+  clockInit();if(clockRunning())return;
+  if(curLeft()<=0){toast("Period is over. Set the clock or change quarter.");return}
+  S.clock.runSince=Date.now();save();
+}
+function stopClock(){
+  clockInit();if(!clockRunning())return;
+  var l=curLeft(),g=curG();
+  S.clock={left:l,runSince:null,gsec:g};save();
+}
+function setClockSec(sec){stopClock();S.clock.left=sec;save();renderClock()}
+function clockToggle(){if(clockRunning())stopClock();else startClock();renderClock()}
+function resetForPeriod(){stopClock();S.clock.left=lenOfPeriod();save()}
+function renderClock(){
+  $("gcNum").textContent=fmt2(curLeft());
+  $("gcBtn").textContent=clockRunning()?"Stop clock":"Start clock";
+  renderPens();
+}
+function renderPens(){
+  var g=curG(),L=curLeft(),act=S.events.filter(function(e){return e.type==="pen"&&!e.released&&e.endG!=null});
+  act.sort(function(a,b){return a.endG-b.endG});
+  if(!act.length){$("pens").innerHTML='<div class="empty">No penalties running.</div>';return}
+  $("pens").innerHTML=act.map(function(e){
+    var rem=e.endG-g,back=L-rem,backTxt=back>=0?"back on at "+fmt2(back)+" "+(S.period===5?"OT":"Q"+S.period):"back on next quarter";
+    return '<div class="pen" style="--c:'+col(e.team)+'"><div><div class="big">#'+esc(e.shooter)+' · '+fmt2(rem)+' left</div>'+
+      '<div class="sm">'+esc(S.names[e.team])+' · '+esc(e.ptype||"Penalty")+(e.card&&e.card!=="None"?" · "+esc(e.card)+" card":"")+' · '+backTxt+'</div></div>'+
+      '<button data-rel="'+e.id+'">Release</button></div>';
+  }).join("");
+}
+function tickClock(){
+  if(!S.teams[0])return;
+  if(clockRunning()&&curLeft()<=0){stopClock();vib();toast("End of "+(S.period===5?"overtime":"Q"+S.period)+".")}
+  var g=curG(),changed=false;
+  S.events.forEach(function(e){
+    if(e.type==="pen"&&!e.released&&e.endG!=null&&g>=e.endG){
+      e.released=true;e.releasedAt=clockDigits();changed=true;vib();
+      toast("Back on: #"+e.shooter+" ("+(e.ptype||"penalty")+").");
+    }
+  });
+  if(changed){save();renderLog()}
+  renderClock();
+}
 /* Main flag colour for each team (Pointbench ids). Used as the away default when a team is picked. */
 var FLAGS={aut:"#ed2939",cro:"#cf0a2c",cze:"#d7141a",esp:"#c60b1e",fin:"#003580",fra:"#002395",ger:"#000000",gbr:"#012169",gre:"#0d5eaf",hun:"#ce2939",irl:"#169b62",isr:"#0038b8",ita:"#009246",lat:"#9e3039",ned:"#f36c21",nor:"#ba0c2f",pol:"#dc143c",por:"#046a38",swe:"#fecb00",sui:"#d52b1e",tur:"#e30a17",ukr:"#005bbb"};
 var PTYPES=["Slash","Hold","Cross-check","Push","Trip","Illegal check","Other"];
@@ -289,7 +355,7 @@ function liveFor(f){
   var ok=d.status==="live"&&age<=1500&&(now-d.recv)<3000;
   return {ok:ok,clock:d.clock,home:d.home,guest:d.guest,period:d.period,swap:m.swap,dev:d};
 }
-function liveDigits(){var L=liveFor(S.field);if(!L||!L.ok||!L.clock)return"";return String(L.clock).replace(/\D/g,"")}
+function liveDigits(){return clockDigits()}
 
 /* ---------- main render ---------- */
 function tally(){
@@ -316,7 +382,7 @@ function renderInfo(){
 }
 function renderBoard(){
   var el=$("board"),h="";
-  if(!SET.feedUrl){el.innerHTML="Scoreboard: not connected (add the socket in Setup)";return}
+  if(!SET.feedUrl){el.innerHTML="";return}
   if(!S.field){el.innerHTML="Scoreboard: choose a field in Setup";return}
   var L=liveFor(S.field);
   if(!L){el.innerHTML="Scoreboard: "+(FEED.status==="connected"?"waiting for "+S.field+" reader":FEED.status);return}
@@ -352,6 +418,7 @@ function renderLog(){
     var big=e.time?fmtTime(e.time):(e.board?fmtTime(e.board):"--:--");
     var p=(e.period<5?"Q"+e.period:"OT")+" · "+esc(S.names[e.team]);
     if(e.goalie)p+=" · G #"+e.goalie;
+    if(e.released&&e.releasedAt)p+=" · back on "+fmtTime(e.releasedAt);
     h+='<button class="item" style="--c:'+col(e.team)+'" data-id="'+e.id+'"><span class="t'+(miss?" miss":"")+'">'+big+(e.at?'<span class="at">'+hhmmss(e.at)+'</span>':'')+'</span>'+
        '<span class="d"><b>'+esc(LABEL[e.type])+'</b> '+esc(who(e))+'<div class="p">'+p+'</div></span><span aria-hidden="true">›</span></button>';
   });
@@ -388,7 +455,7 @@ function renderBox(){
   });
   $("box").innerHTML=h;
 }
-function renderAll(){applyColours(S.colors);renderScore();renderInfo();renderBoard();renderGoalies();renderPeriods();renderLog();renderBox();save()}
+function renderAll(){applyColours(S.colors);renderScore();renderInfo();renderBoard();renderGoalies();renderPeriods();renderLog();renderBox();renderClock();save()}
 
 /* ---------- goalies: set, keep, and the quarter prompt ---------- */
 var GTITLE="",GNEW=[false,false];
@@ -431,7 +498,7 @@ function open(type,ev,team){
   }else{
     D={id:0,type:type,team:team,period:S.period,shooter:"",assist:"",goalie:"",time:"",ptype:"",minutes:"",card:"",at:Date.now(),board:liveDigits(),live:false,skipGoalie:false};
     if(type==="save"&&S.goalies[1-team]){D.goalie=S.goalies[1-team];D.skipGoalie=true}
-    if(type==="goal"||type==="pen"){var lt=liveDigits();if(lt){D.time=lt;D.live=true}}
+    if(type==="goal"||type==="pen"){D.time=clockDigits();D.live=clockRunning()}
   }
   D.f=fieldsOf(D)[0];
   drawSheet();$("sheet").classList.add("on");
@@ -440,7 +507,7 @@ function close(){$("sheet").classList.remove("on");D=null;flushPending()}
 function drawSheet(){
   var fs=fieldsOf(D);
   var h='<h3><span style="color:'+col(D.team)+'">'+(D.id?"Edit ":"")+LABEL[D.type]+' · '+esc(S.names[D.team])+'</span>'+(D.id?'<span><button class="del mv" id="up" aria-label="Move earlier">Earlier</button><button class="del mv" id="dn" aria-label="Move later">Later</button><button class="del" id="del">Delete</button></span>':'')+'</h3>';
-  if(D.live)h+='<div class="sub">Time '+fmtTime(D.time)+' from the scoreboard</div>';
+  if(D.live)h+='<div class="sub">Time '+fmtTime(D.time)+' from the game clock</div>';
   h+='<div class="pers">';
   for(var q=1;q<=5;q++){h+='<button data-p="'+q+'" aria-pressed="'+(D.period===q)+'">'+(q<5?"Q"+q:"OT")+'</button>'}
   h+='</div>';
@@ -517,11 +584,16 @@ function move(id,d){
 function commit(){
   if(D.team===null)return;
   var timed=D.type==="goal"||D.type==="pen";
+  var old=D.id?S.events.find(function(x){return x.id===D.id}):null;
   var e={id:D.id||S.nid++,type:D.type,team:D.team,period:D.period,shooter:D.shooter,assist:D.type==="goal"?D.assist:"",goalie:D.type==="save"?D.goalie:"",time:timed?D.time:"",ptype:D.type==="pen"?(D.ptype||""):"",minutes:D.type==="pen"?(D.minutes||""):"",card:D.type==="pen"?(D.card||""):"",at:D.at,board:D.board};
-  if(D.id){
-    var i=S.events.findIndex(function(x){return x.id===D.id});
-    S.events[i]=e;
-  }else place(e);
+  if(D.type==="pen"){
+    var dur=durOf(D.minutes);
+    if(old&&old.endG!=null&&old.minutes){e.endG=dur?(old.endG-durOf(old.minutes))+dur:null}
+    else e.endG=dur?curG()+dur:null;
+    e.released=old?!!old.released:false;e.releasedAt=old?(old.releasedAt||""):"";
+  }
+  if(old){S.events[S.events.indexOf(old)]=e}
+  else place(e);
   close();renderAll();
 }
 
@@ -529,7 +601,7 @@ function commit(){
 var SU=null,startArmed=false;
 function numsOf(t){return roster(t)}
 function openSetup(){
-  SU={field:S.field,home:S.teams[0]||"",away:S.teams[1]||"",r:[numsOf(0),numsOf(1)],colors:S.colors.slice()};
+  SU={field:S.field,home:S.teams[0]||"",away:S.teams[1]||"",r:[numsOf(0),numsOf(1)],colors:S.colors.slice(),plen:plenOf(),otlen:otOf()};
   startArmed=false;drawSetup();$("ssheet").classList.add("on");
 }
 function closeSetup(){$("ssheet").classList.remove("on");applyColours(S.colors);flushPending()}
@@ -556,6 +628,8 @@ function drawSetup(){
        '<div class="radd"><input id="si'+i+'" inputmode="numeric" placeholder="Number"><button class="ghost" data-add="'+i+'">Add</button></div>'+
        '<div class="rc" id="src'+i+'">'+SU.r[i].map(function(n){return '<button data-rm="'+i+'" data-n="'+n+'">'+n+' ✕</button>'}).join("")+'</div>';
   });
+  h+='<div class="lbl">Period length (minutes)</div><input id="sp" type="number" min="1" max="30" value="'+(SU.plen/60)+'">';
+  h+='<div class="lbl">Overtime length (minutes)</div><input id="so" type="number" min="1" max="30" value="'+(SU.otlen/60)+'">';
   h+='<div class="lbl">Scoreboard socket</div><input id="sf" type="url" placeholder="wss://…" value="'+esc(SET.feedUrl)+'">';
   h+='<div class="act"><button class="cancel" id="sx2">Cancel</button><button class="save" id="sstart">Start game</button></div>';
   $("scard").innerHTML=h;
@@ -574,9 +648,11 @@ function startGame(){
   S.names=[teamName(SU.home),teamName(SU.away)];
   S.field=SU.field;
   S.colors=SU.colors.slice();
+  S.plen=SU.plen;S.otlen=SU.otlen;
   S.gameCode=g?g.code:"";
   S.rosters=[SU.r[0].join(" "),SU.r[1].join(" ")];
   S.goalies=["",""];S.events=[];S.nid=1;S.period=1;FEED.lastPeriod={};PENDING_GOALIES=null;
+  S.clock={left:S.plen,runSince:null,gsec:0};
   save();closeSetup();renderAll();
   openGoalies("Starting goalies");
   syncPeriodNow();
@@ -609,6 +685,8 @@ $("ssheet").addEventListener("change",function(ev){
   else if(ev.target.id==="sa"){SU.away=ev.target.value;applyRosterFor();drawSetup()}
   else if(ev.target.id==="sf"){SET.feedUrl=ev.target.value.trim();saveSet();connectFeed()}
   else if(ev.target.id==="sc0"||ev.target.id==="sc1"){SU.colors[+ev.target.id.slice(2)]=ev.target.value;applyColours(SU.colors)}
+  else if(ev.target.id==="sp"){SU.plen=Math.min(30,Math.max(1,+ev.target.value||8))*60}
+  else if(ev.target.id==="so"){SU.otlen=Math.min(30,Math.max(1,+ev.target.value||5))*60}
 });
 $("ssheet").addEventListener("keydown",function(ev){
   if(ev.key==="Enter"&&ev.target.id&&ev.target.id.indexOf("si")===0){ev.preventDefault();var i=+ev.target.id.slice(2);var v=ev.target.value.replace(/\D/g,"");if(v){SU.r[i]=numsSort(SU.r[i].concat([v]));drawSetup();$("si"+i).focus()}}
@@ -630,7 +708,7 @@ document.querySelector(".ev").addEventListener("click",function(ev){var b=ev.tar
 $("periods").addEventListener("click",function(ev){
   var b=ev.target.closest("button[data-q]");if(!b)return;
   var q=+b.dataset.q;
-  if(q!==S.period){S.period=q;renderAll();openGoalies("Q"+q+" goalies")}
+  if(q!==S.period){S.period=q;resetForPeriod();renderAll();openGoalies("Q"+q+" goalies")}
 });
 $("log").addEventListener("click",function(ev){var b=ev.target.closest("button[data-id]");if(!b)return;var e=S.events.find(function(x){return x.id===+b.dataset.id});if(e){open(e.type,e)}});
 $("card").addEventListener("click",function(ev){
@@ -652,7 +730,7 @@ $("undo").addEventListener("click",function(){if(S.events.length){var last=S.eve
 var armed=false;
 $("reset").addEventListener("click",function(){
   if(!armed){armed=true;$("reset").textContent="Tap again to clear all";setTimeout(function(){armed=false;$("reset").textContent="New game"},3000);return}
-  S.events=[];S.period=1;S.nid=1;S.goalies=["",""];armed=false;$("reset").textContent="New game";renderAll();
+  S.events=[];S.period=1;S.nid=1;S.goalies=["",""];S.clock={left:plenOf(),runSince:null,gsec:0};armed=false;$("reset").textContent="New game";renderAll();
 });
 $("copy").addEventListener("click",function(){
   var rows=[["period","game_time","board_clock","tapped_at","team","event","shooter","assist","goalie","penalty","card","minutes"]];
@@ -675,6 +753,20 @@ function scStart(){
   },1000);
   scDraw();
 }
+$("gcBtn").addEventListener("click",clockToggle);
+$("gcSet").addEventListener("click",function(){
+  var v=window.prompt("Set the game clock (m:ss)",fmt2(curLeft()));
+  if(v==null)return;
+  var m=/^(\d{1,2}):(\d{2})$/.exec(v.trim());
+  if(!m||+m[2]>59){toast("Use m:ss, for example 7:30");return}
+  setClockSec(+m[1]*60+ +m[2]);
+});
+$("pens").addEventListener("click",function(ev){
+  var b=ev.target.closest("button[data-rel]");if(!b)return;
+  var e=S.events.find(function(x){return x.id===+b.dataset.rel});
+  if(e){e.released=true;e.releasedAt=clockDigits();save();renderAll();toast("Released #"+e.shooter+".")}
+});
+setInterval(tickClock,250);
 $("scStart").addEventListener("click",scStart);
 $("scReset").addEventListener("click",function(){clearInterval(SC.timer);SC.timer=null;SC.left=30;scDraw()});
 scDraw();
